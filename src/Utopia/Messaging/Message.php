@@ -7,7 +7,4 @@ namespace Utopia\Messaging;
  */
 interface Message
 {
-    public function setOrigin(?string $origin): self;
-
-    public function getOrigin(): ?string;
 }

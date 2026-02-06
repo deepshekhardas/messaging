@@ -21,7 +21,6 @@ class FCM extends PushAdapter
     public function __construct(
         private string $serviceAccountJSON,
     ) {
-        parent::__construct();
     }
 
     /**

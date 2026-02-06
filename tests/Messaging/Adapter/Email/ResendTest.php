@@ -115,65 +115,26 @@ class ResendTest extends Base
         $this->assertEquals('success', $response['results'][1]['status'], \var_export($response, true));
     }
 
-    public function testSendEmailWithFileAttachment(): void
+    public function testSendEmailWithAttachmentsThrowsException(): void
     {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Resend does not support attachments at this time');
+
+        $to = $this->testEmail;
+        $subject = 'Test Subject';
+        $content = 'Test Content';
+        $fromEmail = $this->testEmail;
+
         $message = new Email(
-            to: [$this->testEmail],
-            subject: 'Test File Attachment',
-            content: 'Test Content with file attachment',
+            to: [$to],
+            subject: $subject,
+            content: $content,
             fromName: 'Test Sender',
-            fromEmail: $this->testEmail,
+            fromEmail: $fromEmail,
             attachments: [new Attachment(
                 name: 'image.png',
                 path: __DIR__.'/../../../assets/image.png',
                 type: 'image/png'
-            )],
-        );
-
-        $response = $this->sender->send($message);
-
-        $this->assertResponse($response);
-    }
-
-    public function testSendEmailWithStringAttachment(): void
-    {
-        $message = new Email(
-            to: [$this->testEmail],
-            subject: 'Test String Attachment',
-            content: 'Test Content with string attachment',
-            fromName: 'Test Sender',
-            fromEmail: $this->testEmail,
-            attachments: [new Attachment(
-                name: 'test.txt',
-                path: '',
-                type: 'text/plain',
-                content: 'Hello, this is a test attachment.',
-            )],
-        );
-
-        $response = $this->sender->send($message);
-
-        $this->assertResponse($response);
-    }
-
-    public function testSendEmailWithAttachmentExceedingMaxSize(): void
-    {
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Total attachment size exceeds');
-
-        $largeContent = \str_repeat('x', 40 * 1024 * 1024 + 1);
-
-        $message = new Email(
-            to: [$this->testEmail],
-            subject: 'Test Oversized Attachment',
-            content: 'Test Content',
-            fromName: 'Test Sender',
-            fromEmail: $this->testEmail,
-            attachments: [new Attachment(
-                name: 'large.bin',
-                path: '',
-                type: 'application/octet-stream',
-                content: $largeContent,
             )],
         );
 

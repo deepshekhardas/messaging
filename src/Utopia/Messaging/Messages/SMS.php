@@ -6,8 +6,6 @@ use Utopia\Messaging\Message;
 
 class SMS implements Message
 {
-    private ?string $origin = null;
-
     /**
      * @param  array<string>  $to
      * @param  array<string>|null  $attachments
@@ -44,17 +42,5 @@ class SMS implements Message
     public function getAttachments(): ?array
     {
         return $this->attachments;
-    }
-
-    public function setOrigin(?string $origin): self
-    {
-        $this->origin = $origin;
-
-        return $this;
-    }
-
-    public function getOrigin(): ?string
-    {
-        return $this->origin;
     }
 }
