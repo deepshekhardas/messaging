@@ -24,7 +24,6 @@ use \Utopia\Messaging\Messages\Email;
 use \Utopia\Messaging\Adapter\Email\SendGrid;
 use \Utopia\Messaging\Adapter\Email\Mailgun;
 use \Utopia\Messaging\Adapter\Email\Resend;
-use \Utopia\Messaging\Adapter\Email\SES;
 
 $message = new Email(
     to: ['team@appwrite.io'],
@@ -39,9 +38,6 @@ $messaging = new Mailgun('YOUR_API_KEY', 'YOUR_DOMAIN');
 $messaging->send($message);
 
 $messaging = new Resend('YOUR_API_KEY');
-$messaging->send($message);
-
-$messaging = new SES('YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', 'YOUR_REGION');
 $messaging->send($message);
 ```
 
@@ -98,7 +94,7 @@ $messaging->send($message);
 - [ ] [SendinBlue](https://www.sendinblue.com/)
 - [ ] [MailSlurp](https://www.mailslurp.com/)
 - [ ] [ElasticEmail](https://elasticemail.com/)
-- [x] [SES](https://aws.amazon.com/ses/)
+- [ ] [SES](https://aws.amazon.com/ses/)
 
 ### SMS
 - [x] [Twilio](https://www.twilio.com/)

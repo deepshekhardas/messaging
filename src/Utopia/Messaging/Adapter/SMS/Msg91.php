@@ -23,7 +23,6 @@ class Msg91 extends SMSAdapter
         private string $authKey,
         private string $templateId,
     ) {
-        parent::__construct();
     }
 
     public function getName(): string

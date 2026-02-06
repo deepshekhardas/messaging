@@ -21,7 +21,6 @@ class Telesign extends SMSAdapter
         private string $customerId,
         private string $apiKey
     ) {
-        parent::__construct();
     }
 
     public function getName(): string

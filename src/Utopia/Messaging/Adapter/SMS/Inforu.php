@@ -20,7 +20,6 @@ class Inforu extends SMSAdapter
         private string $senderId,
         private string $apiToken,
     ) {
-        parent::__construct();
     }
 
     public function getName(): string

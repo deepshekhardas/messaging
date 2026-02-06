@@ -22,7 +22,6 @@ class APNS extends PushAdapter
         private string $bundleId,
         private bool $sandbox = false
     ) {
-        parent::__construct();
     }
 
     /**
