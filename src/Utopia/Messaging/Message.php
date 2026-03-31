@@ -7,4 +7,10 @@ namespace Utopia\Messaging;
  */
 interface Message
 {
+    public function getTo(): array;
+
+    public function getAttachments(): ?array;
+    public function getTo(): array;
+
+    public function getAttachments(): ?array;
 }

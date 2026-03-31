@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 // Reference Material
 // https://www.textmagic.com/docs/api/send-sms/#How-to-send-bulk-text-messages
 
@@ -39,8 +41,9 @@ class TextMagic extends SMSAdapter
      *
      * @throws \Exception
      */
-    protected function process(SMSMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var SMSMessage $message */
         $to = \array_map(
             fn ($to) => \ltrim($to, '+'),
             $message->getTo()
