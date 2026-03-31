@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
 use Utopia\Messaging\Response;
@@ -44,8 +46,9 @@ class Mailgun extends EmailAdapter
      *
      * @link https://documentation.mailgun.com/docs/mailgun/user-manual/sending-messages/#batch-sending
      */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $usDomain = 'api.mailgun.net';
         $euDomain = 'api.eu.mailgun.net';
 
@@ -95,15 +98,7 @@ class Mailgun extends EmailAdapter
         $isMultipart = false;
 
         if (!\is_null($message->getAttachments())) {
-            $size = 0;
-
-            foreach ($message->getAttachments() as $attachment) {
-                $size += \filesize($attachment->getPath());
-            }
-
-            if ($size > self::MAX_ATTACHMENT_BYTES) {
-                throw new \Exception('Attachments size exceeds the maximum allowed size of ');
-            }
+            $this->validateAttachments($message);
 
             foreach ($message->getAttachments() as $index => $attachment) {
                 $isMultipart = true;

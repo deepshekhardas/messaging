@@ -2,16 +2,16 @@
 
 namespace Utopia\Messaging\Adapter\Chat;
 
-use Utopia\Messaging\Adapter;
+use Utopia\Messaging\Message;
+
+use Utopia\Messaging\Adapter\Chat;
 use Utopia\Messaging\Messages\Discord as DiscordMessage;
 use Utopia\Messaging\Response;
 use InvalidArgumentException;
 
-class Discord extends Adapter
+class Discord extends Chat
 {
     protected const NAME = 'Discord';
-    protected const TYPE = 'chat';
-    protected const MESSAGE_TYPE = DiscordMessage::class;
     protected string $webhookId = '';
 
     /**
@@ -53,16 +53,6 @@ class Discord extends Adapter
         return static::NAME;
     }
 
-    public function getType(): string
-    {
-        return static::TYPE;
-    }
-
-    public function getMessageType(): string
-    {
-        return static::MESSAGE_TYPE;
-    }
-
     public function getMaxMessagesPerRequest(): int
     {
         return 1;
@@ -73,8 +63,9 @@ class Discord extends Adapter
      *
      * @throws \Exception
      */
-    protected function process(DiscordMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var DiscordMessage $message */
         $query = [];
 
         if (!\is_null($message->getWait())) {

@@ -7,4 +7,13 @@ namespace Utopia\Messaging;
  */
 interface Message
 {
+    /**
+     * @return array<string>
+     */
+    public function getTo(): array;
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getAttachments(): ?array;
 }

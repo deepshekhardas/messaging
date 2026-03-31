@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
 use Utopia\Messaging\Response;
@@ -41,8 +43,9 @@ class Sendgrid extends EmailAdapter
     *
     * @link https://www.twilio.com/docs/sendgrid/for-developers/sending-email/personalizations#-Sending-Two-Different-Emails-to-Two-Different-Groups-of-Recipients
     */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $personalizations = \array_map(
             fn ($to) => [
                 'to' => [['email' => $to]],
@@ -80,15 +83,7 @@ class Sendgrid extends EmailAdapter
         $attachments = [];
 
         if (!\is_null($message->getAttachments())) {
-            $size = 0;
-
-            foreach ($message->getAttachments() as $attachment) {
-                $size += \filesize($attachment->getPath());
-            }
-
-            if ($size > self::MAX_ATTACHMENT_BYTES) {
-                throw new \Exception('Attachments size exceeds the maximum allowed size of 25MB');
-            }
+            $this->validateAttachments($message);
 
             foreach ($message->getAttachments() as $attachment) {
                 $attachments[] = [

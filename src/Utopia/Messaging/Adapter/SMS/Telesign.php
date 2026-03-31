@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
 use Utopia\Messaging\Messages\SMS as SMSMessage;
 use Utopia\Messaging\Response;
@@ -38,8 +40,9 @@ class Telesign extends SMSAdapter
      *
      * @throws \Exception
      */
-    protected function process(SMSMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var SMSMessage $message */
         $to = $this->formatNumbers(\array_map(
             fn ($to) => $to,
             $message->getTo()

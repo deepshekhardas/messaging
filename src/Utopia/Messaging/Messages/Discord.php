@@ -28,6 +28,11 @@ class Discord implements Message
     ) {
     }
 
+    public function getTo(): array
+    {
+        return [];
+    }
+
     public function getContent(): string
     {
         return $this->content;

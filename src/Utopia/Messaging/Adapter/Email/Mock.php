@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use PHPMailer\PHPMailer\PHPMailer;
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
@@ -25,8 +27,9 @@ class Mock extends EmailAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $response = new Response($this->getType());
         $mail = new PHPMailer();
         $mail->isSMTP();
@@ -59,6 +62,18 @@ class Mock extends EmailAdapter
         if (!empty($message->getBCC())) {
             foreach ($message->getBCC() as $bcc) {
                 $mail->addBCC($bcc['email'], $bcc['name'] ?? '');
+            }
+        }
+
+        if (!empty($message->getAttachments())) {
+            $this->validateAttachments($message);
+
+            foreach ($message->getAttachments() as $attachment) {
+                $mail->addStringAttachment(
+                    string: \file_get_contents($attachment->getPath()),
+                    filename: $attachment->getName(),
+                    type: $attachment->getType()
+                );
             }
         }
 

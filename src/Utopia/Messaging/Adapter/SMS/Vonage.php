@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 // Reference Material
 // https://www.textmagic.com/docs/api/send-sms/#How-to-send-bulk-text-messages
 
@@ -37,7 +39,7 @@ class Vonage extends SMSAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(SMS $message): array
+    protected function process(Message $message): array
     {
         $to = \array_map(
             fn ($to) => \ltrim($to, '+'),

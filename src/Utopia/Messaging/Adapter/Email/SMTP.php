@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use PHPMailer\PHPMailer\PHPMailer;
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
@@ -49,8 +51,9 @@ class SMTP extends EmailAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $response = new Response($this->getType());
         $mail = new PHPMailer();
         $mail->isSMTP();
@@ -92,15 +95,7 @@ class SMTP extends EmailAdapter
         }
 
         if (!empty($message->getAttachments())) {
-            $size = 0;
-
-            foreach ($message->getAttachments() as $attachment) {
-                $size += \filesize($attachment->getPath());
-            }
-
-            if ($size > self::MAX_ATTACHMENT_BYTES) {
-                throw new \Exception('Attachments size exceeds the maximum allowed size of 25MB');
-            }
+            $this->validateAttachments($message);
 
             foreach ($message->getAttachments() as $attachment) {
                 $mail->addStringAttachment(

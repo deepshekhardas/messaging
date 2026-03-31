@@ -40,22 +40,37 @@ abstract class Adapter
      *     results: array<array<string, mixed>>
      * }> GEOSMS adapter returns an array of results keyed by adapter name.
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function send(Message $message): array
     {
         if (!\is_a($message, $this->getMessageType())) {
-            throw new \Exception('Invalid message type.');
+            throw new Exception('Invalid message type.');
         }
-        if (\method_exists($message, 'getTo') && \count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
-            throw new \Exception("{$this->getName()} can only send {$this->getMaxMessagesPerRequest()} messages per request.");
-        }
-        if (!\method_exists($this, 'process')) {
-            throw new \Exception('Adapter does not implement process method.');
+
+        if (\count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
+            throw new Exception("{$this->getName()} can only send {$this->getMaxMessagesPerRequest()} messages per request.");
         }
 
         return $this->process($message);
     }
+
+    /**
+     * Process a message.
+     *
+     * @return array{
+     *     deliveredTo: int,
+     *     type: string,
+     *     results: array<array<string, mixed>>
+     * } | array<string, array{
+     *     deliveredTo: int,
+     *     type: string,
+     *     results: array<array<string, mixed>>
+     * }> GEOSMS adapter returns an array of results keyed by adapter name.
+     *
+     * @throws Exception
+     */
+    abstract protected function process(Message $message): array;
 
     /**
      * Send a single HTTP request.

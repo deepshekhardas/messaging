@@ -6,7 +6,7 @@ class Attachment
 {
     /**
      * @param string $name  The name of the file.
-     * @param string $path  The content of the file.
+     * @param string $path  The path of the file.
      * @param string $type  The MIME type of the file.
      */
     public function __construct(

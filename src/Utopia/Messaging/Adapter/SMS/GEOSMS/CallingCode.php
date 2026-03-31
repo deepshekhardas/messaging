@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS\GEOSMS;
 
+use Utopia\Messaging\Message;
+
 /*
  * List of country calling codes
  * @link https://en.wikipedia.org/wiki/List_of_country_calling_codes

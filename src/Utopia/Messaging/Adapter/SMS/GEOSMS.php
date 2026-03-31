@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
 use Utopia\Messaging\Adapter\SMS\GEOSMS\CallingCode;
 use Utopia\Messaging\Messages\SMS;
@@ -58,7 +60,7 @@ class GEOSMS extends SMSAdapter
     /**
      * @return array<string, array{deliveredTo: int, type: string, results: array<array<string, mixed>>}>
      */
-    protected function process(SMS $message): array
+    protected function process(Message $message): array
     {
         $results = [];
         $recipients = $message->getTo();

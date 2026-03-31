@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
 use Utopia\Messaging\Messages\SMS as SMSMessage;
 use Utopia\Messaging\Response;
@@ -39,8 +41,9 @@ class Msg91 extends SMSAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(SMSMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var SMSMessage $message */
         $recipients = [];
         foreach ($message->getTo() as $recipient) {
             $recipients[] = [

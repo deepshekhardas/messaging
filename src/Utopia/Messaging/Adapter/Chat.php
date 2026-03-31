@@ -4,13 +4,12 @@ namespace Utopia\Messaging\Adapter;
 
 use Utopia\Messaging\Adapter;
 use Utopia\Messaging\Message;
-use Utopia\Messaging\Messages\Push as PushMessage;
+use Utopia\Messaging\Messages\Discord as DiscordMessage;
 
-abstract class Push extends Adapter
+abstract class Chat extends Adapter
 {
-    protected const TYPE = 'push';
-    protected const MESSAGE_TYPE = PushMessage::class;
-    protected const EXPIRED_MESSAGE = 'Expired device token';
+    protected const TYPE = 'chat';
+    protected const MESSAGE_TYPE = DiscordMessage::class;
 
     public function getType(): string
     {
@@ -22,17 +21,13 @@ abstract class Push extends Adapter
         return static::MESSAGE_TYPE;
     }
 
-    protected function getExpiredErrorMessage(): string
-    {
-        return static::EXPIRED_MESSAGE;
-    }
-
     /**
-     * Send a push message.
+     * Send a chat message.
      *
+     * @param  Message  $message Message to send.
      * @return array{deliveredTo: int, type: string, results: array<array<string, mixed>>}
      *
-     * @throws \Exception
+     * @throws \Exception If the message fails.
      */
     abstract protected function process(Message $message): array;
 }
