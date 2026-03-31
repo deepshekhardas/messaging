@@ -29,5 +29,5 @@ abstract class Email extends Adapter
      *
      * @throws \Exception
      */
-    abstract protected function process(EmailMessage $message): array;
+    abstract protected function process(Message $message): array;
 }

@@ -12,6 +12,8 @@ abstract class Adapter
      */
     abstract public function getName(): string;
 
+    abstract protected function process(Message $message): array;
+
     /**
      * Get the type of the adapter.
      */
@@ -45,8 +47,15 @@ abstract class Adapter
     public function send(Message $message): array
     {
         if (!\is_a($message, $this->getMessageType())) {
-            throw new \Exception('Invalid message type.');
+            throw new Exception('Invalid message type.');
         }
+
+        if (\count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
+            throw new Exception('Too many messages for this adapter.');
+        }
+
+        return $this->process($message);
+    }
         if (\method_exists($message, 'getTo') && \count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
             throw new \Exception("{$this->getName()} can only send {$this->getMaxMessagesPerRequest()} messages per request.");
         }

@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
 use Utopia\Messaging\Response;
@@ -41,8 +43,9 @@ class Sendgrid extends EmailAdapter
     *
     * @link https://www.twilio.com/docs/sendgrid/for-developers/sending-email/personalizations#-Sending-Two-Different-Emails-to-Two-Different-Groups-of-Recipients
     */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $personalizations = \array_map(
             fn ($to) => [
                 'to' => [['email' => $to]],

@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
 use Utopia\Messaging\Messages\SMS as SMSMessage;
 use Utopia\Messaging\Response;
@@ -35,8 +37,9 @@ class Twilio extends SMSAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(SMSMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var SMSMessage $message */
         $response = new Response($this->getType());
 
         $result = $this->request(
