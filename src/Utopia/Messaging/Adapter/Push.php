@@ -33,5 +33,5 @@ abstract class Push extends Adapter
      *
      * @throws \Exception
      */
-    abstract protected function process(PushMessage $message): array;
+    abstract protected function process(Message $message): array;
 }

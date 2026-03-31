@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Push;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Push as PushAdapter;
 use Utopia\Messaging\Helpers\JWT;
 use Utopia\Messaging\Messages\Push as PushMessage;

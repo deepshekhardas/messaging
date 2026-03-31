@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Push;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Push as PushAdapter;
 use Utopia\Messaging\Helpers\JWT;
 use Utopia\Messaging\Messages\Push as PushMessage;
@@ -42,8 +44,9 @@ class FCM extends PushAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(PushMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var PushMessage $message */
         $credentials = \json_decode($this->serviceAccountJSON, true);
 
         $now = \time();

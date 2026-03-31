@@ -6,6 +6,11 @@ use Utopia\Messaging\Message;
 
 class Discord implements Message
 {
+    public function getTo(): array
+    {
+        return [];
+    }
+
     /**
      * @param  array<string, mixed>|null  $embeds
      * @param  array<string, mixed>|null  $allowedMentions

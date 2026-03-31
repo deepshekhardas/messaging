@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
 use Utopia\Messaging\Response;
@@ -44,8 +46,9 @@ class Mailgun extends EmailAdapter
      *
      * @link https://documentation.mailgun.com/docs/mailgun/user-manual/sending-messages/#batch-sending
      */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         $usDomain = 'api.mailgun.net';
         $euDomain = 'api.eu.mailgun.net';
 

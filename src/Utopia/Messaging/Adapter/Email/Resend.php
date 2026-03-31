@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Email;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\Email as EmailAdapter;
 use Utopia\Messaging\Messages\Email as EmailMessage;
 use Utopia\Messaging\Response;
@@ -33,8 +35,9 @@ class Resend extends EmailAdapter
      *
      * @link https://resend.com/docs/api-reference/emails/send-batch-emails
      */
-    protected function process(EmailMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var EmailMessage $message */
         // Resend doesn't support attachments yet
         if (! \is_null($message->getAttachments()) && ! empty($message->getAttachments())) {
             throw new \Exception('Resend does not support attachments at this time');

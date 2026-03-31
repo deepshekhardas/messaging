@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\SMS;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
 use Utopia\Messaging\Adapter\SMS\GEOSMS\CallingCode;
 use Utopia\Messaging\Messages\SMS as SMSMessage;
@@ -63,8 +65,9 @@ class Fast2SMS extends SMSAdapter
      * @param SMSMessage $message The SMS message to be processed
      * @return array<string, mixed> The response from the API
      */
-    protected function process(SMSMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var SMSMessage $message */
         $numbers = array_map(
             fn ($number) => $this->removeCountryCode($number),
             $message->getTo()

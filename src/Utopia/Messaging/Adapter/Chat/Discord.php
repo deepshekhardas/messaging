@@ -2,6 +2,8 @@
 
 namespace Utopia\Messaging\Adapter\Chat;
 
+use Utopia\Messaging\Message;
+
 use Utopia\Messaging\Adapter;
 use Utopia\Messaging\Messages\Discord as DiscordMessage;
 use Utopia\Messaging\Response;
@@ -73,8 +75,9 @@ class Discord extends Adapter
      *
      * @throws \Exception
      */
-    protected function process(DiscordMessage $message): array
+    protected function process(Message $message): array
     {
+        /** @var DiscordMessage $message */
         $query = [];
 
         if (!\is_null($message->getWait())) {
