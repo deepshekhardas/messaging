@@ -39,9 +39,14 @@ class Vonage extends SMSAdapter
      */
     protected function process(SMS $message): array
     {
+        $recipients = $message->getTo();
+        if (empty($recipients)) {
+            throw new \Exception('No recipients provided');
+        }
+
         $to = \array_map(
             fn ($to) => \ltrim($to, '+'),
-            $message->getTo()
+            $recipients
         );
 
         $response = new Response($this->getType());
@@ -60,15 +65,13 @@ class Vonage extends SMSAdapter
             ],
         );
 
-        if (($result['response']['messages'][0]['status'] ?? null) === 0) {
+        $messages = $result['response']['messages'] ?? [];
+        if (!empty($messages) && ($messages[0]['status'] ?? null) === 0) {
             $response->setDeliveredTo(1);
-            $response->addResult($result['response']['messages'][0]['to']);
+            $response->addResult($messages[0]['to'] ?? $recipients[0]);
         } else {
-            if (!\is_null($result['response']['messages'][0]['error-text'] ?? null)) {
-                $response->addResult($message->getTo()[0], $result['response']['messages'][0]['error-text']);
-            } else {
-                $response->addResult($message->getTo()[0], 'Unknown error');
-            }
+            $error = $messages[0]['error-text'] ?? 'Unknown error';
+            $response->addResult($recipients[0], $error);
         }
 
         return $response->toArray();
