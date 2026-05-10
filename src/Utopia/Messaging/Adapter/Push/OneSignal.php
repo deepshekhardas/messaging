@@ -89,7 +89,13 @@ class OneSignal extends PushAdapter
                 $response->addResult($to);
             }
         } else {
-            $error = $results['response']['errors'][0] ?? $results['response']['error'] ?? 'Unknown error';
+            $error = null;
+            if (isset($results['response']['errors']) && \is_array($results['response']['errors'])) {
+                $error = $results['response']['errors'][0] ?? null;
+            }
+            if ($error === null) {
+                $error = $results['response']['error'] ?? 'Unknown error';
+            }
             foreach ($message->getTo() as $to) {
                 $response->addResult($to, \is_array($error) ? ($error['message'] ?? 'Unknown error') : $error);
             }
