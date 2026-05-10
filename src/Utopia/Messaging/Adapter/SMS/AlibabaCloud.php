@@ -64,13 +64,19 @@ class AlibabaCloud extends SMSAdapter
                 'Version' => '2017-05-25',
             ];
 
-            $params['Signature'] = $this->generateSignature($params);
+$params['Signature'] = $this->generateSignature($params);
+
+            $queryString = '';
+            foreach ($params as $key => $value) {
+                $queryString .= '&' . $this->percentEncode($key) . '=' . $this->percentEncode($value);
+            }
+            $queryString = \substr($queryString, 1);
 
             $result = $this->request(
                 method: 'GET',
-                url: 'https://dysmsapi.aliyuncs.com',
+                url: 'https://dysmsapi.aliyuncs.com?' . $queryString,
                 headers: [],
-                body: $params
+                body: null
             );
 
             if ($result['statusCode'] >= 200 && $result['statusCode'] < 300 && ($result['response']['Code'] ?? '') === 'OK') {
