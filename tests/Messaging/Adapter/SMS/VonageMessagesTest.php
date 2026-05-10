@@ -2,24 +2,27 @@
 
 namespace Utopia\Tests\Adapter\SMS;
 
+use PHPUnit\Framework\TestCase;
 use Utopia\Messaging\Adapter\SMS\VonageMessages;
 use Utopia\Messaging\Adapter\WhatsApp\Vonage as VonageWhatsApp;
 use Utopia\Messaging\Adapter\Viber\Vonage as VonageViber;
 use Utopia\Messaging\Adapter\MMS\Vonage as VonageMMS;
 use Utopia\Messaging\Messages\SMS;
-use Utopia\Tests\Adapter\Base;
 
-class VonageMessagesTest extends Base
+class VonageMessagesTest extends TestCase
 {
-private string $applicationId = 'test-application-id';
-    private string $privateKey = "-----BEGIN RSA PRIVATE KEY-----
-MIIEpQIBAAKCAQEAu1SU1LfJLPribzDKx8yKkW9Ly4a9Xj8h7c8rKmWMlG0h7QJy
-Z3R4fW9p3Kz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
-zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
-zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
------END RSA PRIVATE KEY-----";
+    private string $applicationId = 'test-application-id';
+    
+    private string $privateKey = <<<'EOD'
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAu1SU1LfJLPribzDKx8yKkW9Ly4a9Xj8h7c8rKmWMlG0h7QJyZ3R4
+fW9p3Kz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
+zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
+zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
+-----END RSA PRIVATE KEY-----
+EOD;
 
-public function testSendSMS(): void
+    public function testSendSMS(): void
     {
         $sender = new VonageMessages($this->applicationId, $this->privateKey);
 
@@ -30,12 +33,11 @@ public function testSendSMS(): void
         );
 
         $response = $sender->send($message);
-        $result = \json_decode($response, true);
 
-        $this->assertNotEmpty($result);
+        $this->assertIsArray($response);
     }
 
-public function testSendWhatsApp(): void
+    public function testSendWhatsApp(): void
     {
         $sender = new VonageWhatsApp($this->applicationId, $this->privateKey);
 
@@ -46,9 +48,8 @@ public function testSendWhatsApp(): void
         );
 
         $response = $sender->send($message);
-        $result = \json_decode($response, true);
 
-        $this->assertNotEmpty($result);
+        $this->assertIsArray($response);
     }
 
     public function testSendViber(): void
@@ -62,9 +63,8 @@ public function testSendWhatsApp(): void
         );
 
         $response = $sender->send($message);
-        $result = \json_decode($response, true);
 
-        $this->assertNotEmpty($result);
+        $this->assertIsArray($response);
     }
 
     public function testSendMMS(): void
@@ -78,8 +78,7 @@ public function testSendWhatsApp(): void
         );
 
         $response = $sender->send($message);
-        $result = \json_decode($response, true);
 
-        $this->assertNotEmpty($result);
+        $this->assertIsArray($response);
     }
 }

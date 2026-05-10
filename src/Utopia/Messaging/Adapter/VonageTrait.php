@@ -32,10 +32,10 @@ trait VonageTrait
 
         $from = $this->from ?? $message->getFrom() ?? 'Appwrite';
 
-        $payload = [
+$payload = [
             'from' => $from,
             'to' => \ltrim($to[0], '+'),
-            'message_type' => 'text',
+            'message_type' => $channel === 'mms' ? 'mms' : 'text',
             'text' => $message->getContent(),
             'channel' => $channel,
         ];
