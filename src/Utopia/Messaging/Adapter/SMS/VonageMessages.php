@@ -3,7 +3,8 @@
 namespace Utopia\Messaging\Adapter\SMS;
 
 use Utopia\Messaging\Adapter\SMS as SMSAdapter;
-use Utopia\Messaging\Helpers\JWT;
+use Utopia\Messaging\Adapter\VonageTrait;
+use Utopia\Messaging\Message;
 use Utopia\Messaging\Messages\SMS as SMSMessage;
 use Utopia\Messaging\Response;
 

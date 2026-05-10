@@ -11,20 +11,17 @@ use Utopia\Tests\Adapter\Base;
 
 class VonageMessagesTest extends Base
 {
-    private string $applicationId = 'test-application-id';
+private string $applicationId = 'test-application-id';
     private string $privateKey = "-----BEGIN RSA PRIVATE KEY-----
-MIIEpQIBAAKCAQEA75P/9p6z8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
-8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
-8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
-8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
-8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
-8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
+MIIEpQIBAAKCAQEAu1SU1LfJLPribzDKx8yKkW9Ly4a9Xj8h7c8rKmWMlG0h7QJy
+Z3R4fW9p3Kz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
+zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
+zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8
 -----END RSA PRIVATE KEY-----";
 
-    public function testSendSMS(): void
+public function testSendSMS(): void
     {
         $sender = new VonageMessages($this->applicationId, $this->privateKey);
-        $sender->setEndpoint('http://request-catcher-sms:5000/');
 
         $message = new SMS(
             to: ['+1234567890'],
@@ -35,15 +32,12 @@ MIIEpQIBAAKCAQEA75P/9p6z8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
         $response = $sender->send($message);
         $result = \json_decode($response, true);
 
-        // This assumes the mock server returns a success response
-        // In a real environment, we'd check the request-catcher data
         $this->assertNotEmpty($result);
     }
 
-    public function testSendWhatsApp(): void
+public function testSendWhatsApp(): void
     {
         $sender = new VonageWhatsApp($this->applicationId, $this->privateKey);
-        $sender->setEndpoint('http://request-catcher-whatsapp:5000/');
 
         $message = new SMS(
             to: ['+1234567890'],
@@ -60,7 +54,6 @@ MIIEpQIBAAKCAQEA75P/9p6z8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
     public function testSendViber(): void
     {
         $sender = new VonageViber($this->applicationId, $this->privateKey);
-        $sender->setEndpoint('http://request-catcher-viber:5000/');
 
         $message = new SMS(
             to: ['+1234567890'],
@@ -77,7 +70,6 @@ MIIEpQIBAAKCAQEA75P/9p6z8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz8zKz
     public function testSendMMS(): void
     {
         $sender = new VonageMMS($this->applicationId, $this->privateKey);
-        $sender->setEndpoint('http://request-catcher-mms:5000/');
 
         $message = new SMS(
             to: ['+1234567890'],
