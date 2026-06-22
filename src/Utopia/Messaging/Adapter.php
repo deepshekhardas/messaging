@@ -2,19 +2,13 @@
 
 namespace Utopia\Messaging;
 
-use Closure;
 use Exception;
-use JsonException;
-use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
+use libphonenumber\PhoneNumberUtil;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use Swoole\Coroutine;
-use Swoole\Coroutine\WaitGroup;
 use Utopia\Client;
 use Utopia\Client\Adapter\Curl\Client as CurlAdapter;
-use Utopia\Pools\Adapter\Swoole as SwoolePoolAdapter;
-use Utopia\Pools\Pool as ConnectionPool;
+use Utopia\Psr7\Header;
 use Utopia\Psr7\Request\Factory as RequestFactory;
 use Utopia\Telemetry\Adapter as Telemetry;
 use Utopia\Telemetry\Adapter\None as NoTelemetry;
@@ -22,33 +16,9 @@ use Utopia\Telemetry\Counter;
 
 abstract class Adapter
 {
-    /**
-     * Upper bound on the connection pool size used by requestMulti().
-     */
-    private const int MAX_CONCURRENT_REQUESTS = 25;
-
-    /**
-     * Name of the connection pool used by requestMulti().
-     */
-    private const string CONNECTION_POOL_NAME = 'messaging';
-
-    /**
-     * Counter tracking sent messages, labelled by result, type and provider.
-     */
     private Counter $sendCounter;
 
-    /**
-     * @param  Telemetry|null  $telemetry Telemetry adapter to record metrics with; defaults to a no-op adapter.
-     * @param  (Closure(): ClientInterface)|null  $clientFactory Factory producing the PSR-18 clients
-     *         used for HTTP requests — called once per request() and once per pooled requestMulti()
-     *         connection, so it must return a new (or safely shareable) client on each call. Defaults
-     *         to utopia-php/client's cURL adapter configured for HTTP/2 with the request()/requestMulti()
-     *         timeouts applied. A custom factory owns its own timeout configuration, and its clients
-     *         must be able to negotiate HTTP/2 for push adapters — APNs rejects HTTP/1.1 connections,
-     *         so a bare `new Client(new CurlAdapter())` will not work; configure the adapter with
-     *         `new CurlAdapter(options: [CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_2_0])`.
-     */
-    public function __construct(?Telemetry $telemetry = null, private readonly ?Closure $clientFactory = null)
+    public function __construct(?Telemetry $telemetry = null)
     {
         $this->sendCounter = ($telemetry ?? new NoTelemetry())->createCounter('messaging.send');
     }
@@ -90,20 +60,20 @@ abstract class Adapter
      */
     public function send(Message $message): array
     {
-        if (!is_a($message, $this->getMessageType())) {
+        if (!\is_a($message, $this->getMessageType())) {
             throw new \Exception('Invalid message type.');
         }
-        if (method_exists($message, 'getTo') && \count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
+        if (\method_exists($message, 'getTo') && \count($message->getTo()) > $this->getMaxMessagesPerRequest()) {
             throw new \Exception("{$this->getName()} can only send {$this->getMaxMessagesPerRequest()} messages per request.");
         }
-        if (!method_exists($this, 'process')) {
+        if (!\method_exists($this, 'process')) {
             throw new \Exception('Adapter does not implement process method.');
         }
 
         try {
             $response = $this->process($message);
         } catch (\Throwable $error) {
-            $this->recordSend($message, method_exists($message, 'getTo') ? \count($message->getTo()) : 1, 0);
+            $this->recordSend($message, \method_exists($message, 'getTo') ? \count($message->getTo()) : 1, 0);
             throw $error;
         }
 
@@ -145,7 +115,7 @@ abstract class Adapter
 
         return $attributes + [
             'type' => $this->getType(),
-            'provider' => strtolower($this->getName()),
+            'provider' => \strtolower($this->getName()),
         ];
     }
 
@@ -170,23 +140,15 @@ abstract class Adapter
     }
 
     /**
-     * Send a single HTTP request.
+     * Send a single HTTP request and return the client's PSR-7 response.
      *
      * @param  string  $method The HTTP method to use.
      * @param  string  $url The URL to send the request to.
-     * @param  array<string>  $headers An array of headers to send with the request.
+     * @param  array<string>  $headers Headers as "Key: value" strings.
      * @param  array<string, mixed>|null  $body The body of the request.
      * @param  int  $timeout The timeout in seconds.
-     * @return array{
-     *     url: string,
-     *     statusCode: int,
-     *     response: array<string, mixed>|string|null,
-     *     headers: array<string, string>,
-     *     error: string,
-     *     errorCode: int
-     * }
      *
-     * @throws Exception If the request fails.
+     * @throws \Psr\Http\Client\ClientExceptionInterface If the request fails at the transport level.
      */
     protected function request(
         string $method,
@@ -194,46 +156,21 @@ abstract class Adapter
         array $headers = [],
         ?array $body = null,
         int $timeout = 30,
-        int $connectTimeout = 10,
-    ): array {
-        $client = $this->clientFactory instanceof \Closure
-            ? ($this->clientFactory)()
-            : $this->defaultClient($timeout, $connectTimeout);
-
-        $request = $this->buildRequest($method, $url, $headers, $body);
-
-        try {
-            $response = $client->sendRequest($request);
-        } catch (ClientExceptionInterface $error) {
-            return [
-                'url' => $url,
-                'statusCode' => 0,
-                'response' => null,
-                'headers' => [],
-                'error' => $error->getMessage(),
-                'errorCode' => $error->getCode(),
-            ];
-        }
-
-        return $this->buildResult($response, $url);
+        int $connectTimeout = 10
+    ): ResponseInterface {
+        return $this->client($timeout, $connectTimeout)
+            ->sendRequest($this->buildRequest($method, $url, $headers, $body));
     }
 
     /**
-     * Send multiple concurrent HTTP requests using Swoole coroutines over a
-     * bounded connection pool.
+     * Send multiple HTTP requests over a single kept-alive HTTP/2 connection.
+     * Responses are returned in request order, so the Nth response corresponds
+     * to the Nth recipient.
      *
      * @param  array<string>  $urls
-     * @param  array<string>  $headers
+     * @param  array<string>  $headers Headers as "Key: value" strings.
      * @param  array<array<string, mixed>>  $bodies
-     * @return array<array{
-     *     index: int,
-     *     url: string,
-     *     statusCode: int,
-     *     response: array<string, mixed>|string|null,
-     *     headers: array<string, string>,
-     *     error: string,
-     *     errorCode: int
-     * }>
+     * @return array<ResponseInterface>
      *
      * @throws Exception
      */
@@ -243,186 +180,110 @@ abstract class Adapter
         array $headers = [],
         array $bodies = [],
         int $timeout = 30,
-        int $connectTimeout = 10,
+        int $connectTimeout = 10
     ): array {
-        if ($urls === []) {
+        if (empty($urls)) {
             throw new \Exception('No URLs provided. Must provide at least one URL.');
         }
 
         $urlCount = \count($urls);
         $bodyCount = \count($bodies);
 
-        if (!($urlCount === $bodyCount || $urlCount === 1 || $bodyCount === 1)) {
+        if (!($urlCount == $bodyCount || $urlCount == 1 || $bodyCount == 1)) {
             throw new \Exception('URL and body counts must be equal or one must equal 1.');
         }
 
-        if ($bodyCount > 0 && $urlCount > $bodyCount) {
-            $bodies = array_pad($bodies, $urlCount, $bodies[0]);
+        if ($urlCount > $bodyCount) {
+            $bodies = \array_pad($bodies, $urlCount, $bodies[0]);
         } elseif ($urlCount < $bodyCount) {
-            $urls = array_pad($urls, $bodyCount, $urls[0]);
+            $urls = \array_pad($urls, $bodyCount, $urls[0]);
         }
 
-        $requests = [];
-        foreach ($urls as $i => $url) {
-            $requests[$i] = $this->buildRequest($method, $url, $headers, $bodies[$i] ?? null);
-        }
-
-        $results = [];
-
-        $run = function () use ($requests, $timeout, $connectTimeout, &$results): void {
-            $pool = new ConnectionPool(
-                pool: new SwoolePoolAdapter(),
-                name: self::CONNECTION_POOL_NAME,
-                size: min(\count($requests), self::MAX_CONCURRENT_REQUESTS),
-                init: $this->clientFactory ?? $this->defaultClient($timeout, $connectTimeout)->withConnectionReuse(...),
-            );
-
-            $group = new WaitGroup();
-
-            foreach ($requests as $index => $request) {
-                $group->add();
-
-                Coroutine::create(function () use ($pool, $request, $index, &$results, $group): void {
-                    try {
-                        $results[$index] = $pool->use(fn(ClientInterface $client): array => $this->buildResult($client->sendRequest($request), (string) $request->getUri()));
-                    } catch (\Throwable $error) {
-                        // Throwable rather than the PSR client exception: pool
-                        // acquisition and factory failures must also land in
-                        // this slot's result — an uncaught throwable in a
-                        // coroutine is fatal and would drop the slot entirely.
-                        $results[$index] = [
-                            'url' => (string) $request->getUri(),
-                            'statusCode' => 0,
-                            'response' => null,
-                            'headers' => [],
-                            'error' => $error->getMessage(),
-                            'errorCode' => (int) $error->getCode(),
-                        ];
-                    } finally {
-                        $group->done();
-                    }
-                });
-            }
-
-            $group->wait();
-        };
-
-        // Fan out directly when already inside a coroutine runtime (e.g.
-        // Swoole servers/workers); otherwise bootstrap a scheduler for the
-        // duration of the batch.
-        if (Coroutine::getCid() > 0) {
-            $run();
-        } else {
-            \Swoole\Coroutine\run($run);
-        }
+        $client = $this->client($timeout, $connectTimeout, multi: true);
 
         $responses = [];
-        foreach ($results as $index => $result) {
-            $responses[] = ['index' => $index] + $result;
+        foreach ($urls as $i => $url) {
+            $responses[] = $client->sendRequest($this->buildRequest($method, $url, $headers, $bodies[$i]));
         }
 
         return $responses;
     }
 
     /**
-     * Build the default HTTP client used when none was injected.
-     *
-     * cURL rather than Swoole's HTTP client: APNs only accepts HTTP/2, which
-     * Coroutine\Http\Client cannot negotiate (curl falls back to HTTP/1.1 for
-     * servers without it). Swoole's native-curl hook keeps requestMulti()
-     * sends concurrent per coroutine.
+     * Build a client carrying the adapter's user agent and timeouts. When
+     * $multi is set the cURL transport negotiates HTTP/2 and keeps the
+     * connection alive so a batch of requests to the same host reuses it.
      */
-    private function defaultClient(int $timeout, int $connectTimeout): Client
+    private function client(int $timeout, int $connectTimeout, bool $multi = false): Client
     {
-        return new Client(new CurlAdapter(options: [CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_2_0]))
+        $adapter = new CurlAdapter(
+            options: $multi ? [\CURLOPT_HTTP_VERSION => \CURL_HTTP_VERSION_2_0] : [],
+        );
+
+        return (new Client($adapter))
             ->withTimeout((float) $timeout)
-            ->withConnectTimeout((float) $connectTimeout);
+            ->withConnectTimeout((float) $connectTimeout)
+            ->withConnectionReuse($multi)
+            ->withHeaders([Header::USER_AGENT => "Appwrite {$this->getName()} Message Sender"]);
     }
 
     /**
-     * Build a PSR-7 request, encoding the body based on the request headers:
-     * JSON, form-urlencoded, or multipart/form-data (mirroring curl's
-     * handling of array CURLOPT_POSTFIELDS) in that order of precedence.
+     * Translate the legacy "Key: value" header list and body array into a
+     * PSR-7 request, picking the body encoding from the Content-Type header.
      *
-     * @param  array<string>  $headers Headers as "Name: value" strings.
+     * @param  array<string>  $headers
      * @param  array<string, mixed>|null  $body
      */
     private function buildRequest(string $method, string $url, array $headers, ?array $body): RequestInterface
     {
         $factory = new RequestFactory();
-
-        $headerMap = [];
-        foreach ($headers as $header) {
-            $parts = explode(':', $header, 2);
-            if (\count($parts) === 2) {
-                $headerMap[trim($parts[0])] = trim($parts[1]);
-            }
-        }
-
-        // On the request rather than the client so injected PSR-18 clients
-        // send the same identity.
-        if (!array_any(array_keys($headerMap), fn(string $name): bool => strtolower($name) === 'user-agent')) {
-            $headerMap['User-Agent'] = "Appwrite {$this->getName()} Message Sender";
-        }
-
-        if ($body === null) {
-            return $factory->query($method, $url, [], $headerMap);
-        }
+        $contentType = '';
+        $map = [];
 
         foreach ($headers as $header) {
-            if (str_contains($header, 'application/json')) {
-                return $factory->json($method, $url, $body, $headerMap);
+            [$key, $value] = \array_pad(\explode(':', $header, 2), 2, '');
+            $key = \trim($key);
+            $value = \trim($value);
+
+            if (\strtolower($key) === 'content-type') {
+                $contentType = \strtolower($value);
+
+                continue;
             }
-            if (str_contains($header, 'application/x-www-form-urlencoded')) {
-                return $factory->form($method, $url, $body, $headerMap);
-            }
+
+            $map[$key] = $value;
         }
 
-        // Drop any bare multipart Content-Type so the factory can set one
-        // carrying the boundary.
-        foreach (array_keys($headerMap) as $name) {
-            if (strtolower($name) === 'content-type') {
-                unset($headerMap[$name]);
-            }
-        }
+        $body ??= [];
 
-        return $factory->multipart($method, $url, $body, $headerMap);
+        return match (true) {
+            \str_contains($contentType, 'application/x-www-form-urlencoded') => $factory->form($method, $url, $body, $map),
+            \str_contains($contentType, 'multipart/form-data') => $factory->multipart($method, $url, $body, $map),
+            default => $factory->json($method, $url, $body, $map),
+        };
     }
 
+
     /**
-     * Map a PSR-7 response to the array shape adapters consume.
-     *
-     * @return array{
-     *     url: string,
-     *     statusCode: int,
-     *     response: array<string, mixed>|string|null,
-     *     headers: array<string, string>,
-     *     error: string,
-     *     errorCode: int
-     * }
+     * @param string $phone
+     * @return int|null
+     * @throws Exception
      */
-    private function buildResult(ResponseInterface $response, string $url): array
+    public function getCountryCode(string $phone): ?int
     {
-        $body = (string) $response->getBody();
+        if (empty($phone)) {
+            throw new Exception('$phone cannot be empty.');
+        }
+
+        $helper = PhoneNumberUtil::getInstance();
 
         try {
-            $body = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            // Ignore
-        }
+            return $helper
+                ->parse($phone)
+                ->getCountryCode();
 
-        $headers = [];
-        foreach (array_keys($response->getHeaders()) as $name) {
-            $headers[strtolower((string) $name)] = $response->getHeaderLine((string) $name);
+        } catch (\Throwable $th) {
+            throw new Exception("Error parsing phone: " . $th->getMessage());
         }
-
-        return [
-            'url' => $url,
-            'statusCode' => $response->getStatusCode(),
-            'response' => $body,
-            'headers' => $headers,
-            'error' => '',
-            'errorCode' => 0,
-        ];
     }
 }

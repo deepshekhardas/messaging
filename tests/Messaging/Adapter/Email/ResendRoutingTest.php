@@ -1,15 +1,16 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Utopia\Tests\Adapter\Email;
 
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Utopia\Messaging\Adapter\Email\Resend;
 use Utopia\Messaging\Messages\Email;
 use Utopia\Messaging\Messages\Email\Attachment;
+use Utopia\Psr7\Response;
+use Utopia\Psr7\Stream;
 
-final class ResendRoutingTest extends TestCase
+class ResendRoutingTest extends TestCase
 {
     public function testWithoutAttachmentsUsesBatchEndpoint(): void
     {
@@ -63,7 +64,7 @@ final class ResendRoutingTest extends TestCase
             $this->assertCount(1, $request['body']['attachments']);
             $this->assertEquals('note.txt', $request['body']['attachments'][0]['filename']);
             $this->assertEquals('text/plain', $request['body']['attachments'][0]['content_type']);
-            $this->assertEquals(base64_encode('hello'), $request['body']['attachments'][0]['content']);
+            $this->assertEquals(\base64_encode('hello'), $request['body']['attachments'][0]['content']);
         }
 
         $this->assertEquals(2, $response['deliveredTo']);
@@ -114,7 +115,7 @@ final class ResendRoutingTest extends TestCase
                 name: 'large.bin',
                 path: '',
                 type: 'application/octet-stream',
-                content: str_repeat('x', 40 * 1024 * 1024 + 1),
+                content: \str_repeat('x', 40 * 1024 * 1024 + 1),
             )],
         );
 
@@ -137,17 +138,15 @@ class ResendStub extends Resend
     /**
      * @param  array<string>  $headers
      * @param  array<string, mixed>|null  $body
-     * @return array{url: string, statusCode: int, response: array<string, mixed>|string|null, headers: array<string, string>, error: string|null, errorCode: int}
      */
-    #[\Override]
     protected function request(
         string $method,
         string $url,
         array $headers = [],
         ?array $body = null,
         int $timeout = 30,
-        int $connectTimeout = 10,
-    ): array {
+        int $connectTimeout = 10
+    ): ResponseInterface {
         $this->capturedRequests[] = [
             'method' => $method,
             'url' => $url,
@@ -155,15 +154,10 @@ class ResendStub extends Resend
             'body' => $body,
         ];
 
-        $stub = array_shift($this->stubResponses) ?? ['statusCode' => 200, 'response' => []];
+        $stub = \array_shift($this->stubResponses) ?? ['statusCode' => 200, 'response' => []];
 
-        return [
-            'url' => $url,
-            'statusCode' => $stub['statusCode'],
-            'response' => $stub['response'],
-            'headers' => [],
-            'error' => null,
-            'errorCode' => 0,
-        ];
+        $payload = \is_string($stub['response']) ? $stub['response'] : (string) \json_encode($stub['response']);
+
+        return new Response($stub['statusCode'], '', new Stream($payload));
     }
 }

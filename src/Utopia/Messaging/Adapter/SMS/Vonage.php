@@ -18,9 +18,9 @@ class Vonage extends SMSAdapter
      * @param  string  $apiSecret Vonage API Secret
      */
     public function __construct(
-        private readonly string $apiKey,
-        private readonly string $apiSecret,
-        private readonly ?string $from = null,
+        private string $apiKey,
+        private string $apiSecret,
+        private ?string $from = null
     ) {
         parent::__construct();
     }
@@ -40,9 +40,9 @@ class Vonage extends SMSAdapter
      */
     protected function process(SMS $message): array
     {
-        $to = array_map(
-            fn(string $to): string => ltrim($to, '+'),
-            $message->getTo(),
+        $to = \array_map(
+            fn ($to) => \ltrim($to, '+'),
+            $message->getTo()
         );
 
         $response = new Response($this->getType());
@@ -50,7 +50,7 @@ class Vonage extends SMSAdapter
             method: 'POST',
             url: 'https://rest.nexmo.com/sms/json',
             headers: [
-                'Content-Type' => 'application/x-www-form-urlencoded',
+                'Content-Type: application/x-www-form-urlencoded',
             ],
             body: [
                 'text' => $message->getContent(),
@@ -61,13 +61,17 @@ class Vonage extends SMSAdapter
             ],
         );
 
-        if (($result['response']['messages'][0]['status'] ?? null) === 0) {
+        $body = \json_decode((string) $result->getBody(), true);
+
+        if (($body['messages'][0]['status'] ?? null) === 0) {
             $response->setDeliveredTo(1);
-            $response->addResult($result['response']['messages'][0]['to']);
-        } elseif (!\is_null($result['response']['messages'][0]['error-text'] ?? null)) {
-            $response->addResult($message->getTo()[0], $result['response']['messages'][0]['error-text']);
+            $response->addResult($body['messages'][0]['to']);
         } else {
-            $response->addResult($message->getTo()[0], 'Unknown error');
+            if (!\is_null($body['messages'][0]['error-text'] ?? null)) {
+                $response->addResult($message->getTo()[0], $body['messages'][0]['error-text']);
+            } else {
+                $response->addResult($message->getTo()[0], 'Unknown error');
+            }
         }
 
         return $response->toArray();

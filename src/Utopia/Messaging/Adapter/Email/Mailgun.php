@@ -16,9 +16,9 @@ class Mailgun extends EmailAdapter
      * @param  string  $domain Your Mailgun domain to send messages from.
      */
     public function __construct(
-        private readonly string $apiKey,
-        private readonly string $domain,
-        private readonly bool $isEU = false,
+        private string $apiKey,
+        private string $domain,
+        private bool $isEU = false
     ) {
         parent::__construct();
     }
@@ -54,20 +54,20 @@ class Mailgun extends EmailAdapter
         $domain = $this->isEU ? $euDomain : $usDomain;
 
         $recipients = $message->getTo();
-        $toEmails = array_map(fn(array $to): string => $to['email'], $recipients);
+        $toEmails = \array_map(fn ($to) => $to['email'], $recipients);
 
         $body = [
-            'to' => implode(',', array_map(
-                fn(array $to) => empty($to['name'])
-                    ? $to['email']
-                    : "{$to['name']} <{$to['email']}>",
-                $recipients,
+            'to' => \implode(',', \array_map(
+                fn ($to) => !empty($to['name'])
+                    ? "{$to['name']} <{$to['email']}>"
+                    : $to['email'],
+                $recipients
             )),
             'from' => "{$message->getFromName()} <{$message->getFromEmail()}>",
             'subject' => $message->getSubject(),
             'text' => $message->isHtml() ? null : $message->getContent(),
             'html' => $message->isHtml() ? $message->getContent() : null,
-            'h:Reply-To: ' . "{$message->getReplyToName()} <{$message->getReplyToEmail()}>",
+            'h:Reply-To: '."{$message->getReplyToName()} <{$message->getReplyToEmail()}>",
         ];
 
         if (\count($recipients) > 1) {
@@ -77,13 +77,13 @@ class Mailgun extends EmailAdapter
         if (!\is_null($message->getCC())) {
             foreach ($message->getCC() as $cc) {
                 if (!empty($cc['email'])) {
-                    $ccString = empty($cc['name'])
-                        ? $cc['email']
-                        : "{$cc['name']} <{$cc['email']}>";
+                    $ccString = !empty($cc['name'])
+                        ? "{$cc['name']} <{$cc['email']}>"
+                        : $cc['email'];
 
-                    $body['cc'] = empty($body['cc'])
-                        ? $ccString
-                        : "{$body['cc']},{$ccString}";
+                    $body['cc'] = !empty($body['cc'])
+                        ? "{$body['cc']},{$ccString}"
+                        : $ccString;
                 }
             }
         }
@@ -91,13 +91,13 @@ class Mailgun extends EmailAdapter
         if (!\is_null($message->getBCC())) {
             foreach ($message->getBCC() as $bcc) {
                 if (!empty($bcc['email'])) {
-                    $bccString = empty($bcc['name'])
-                        ? $bcc['email']
-                        : "{$bcc['name']} <{$bcc['email']}>";
+                    $bccString = !empty($bcc['name'])
+                        ? "{$bcc['name']} <{$bcc['email']}>"
+                        : $bcc['email'];
 
-                    $body['bcc'] = empty($body['bcc'])
-                        ? $bccString
-                        : "{$body['bcc']},{$bccString}";
+                    $body['bcc'] = !empty($body['bcc'])
+                        ? "{$body['bcc']},{$bccString}"
+                        : $bccString;
                 }
             }
         }
@@ -108,7 +108,7 @@ class Mailgun extends EmailAdapter
             $size = 0;
 
             foreach ($message->getAttachments() as $attachment) {
-                $size += filesize($attachment->getPath());
+                $size += \filesize($attachment->getPath());
             }
 
             if ($size > self::MAX_ATTACHMENT_BYTES) {
@@ -119,7 +119,7 @@ class Mailgun extends EmailAdapter
                 $isMultipart = true;
 
                 $body["attachment[$index]"] = Part::file(
-                    "attachment[$index]",
+                    'attachment',
                     $attachment->getPath(),
                     $attachment->getName(),
                     $attachment->getType(),
@@ -130,10 +130,14 @@ class Mailgun extends EmailAdapter
         $response = new Response($this->getType());
 
         $headers = [
-            'Authorization: Basic ' . base64_encode("api:$this->apiKey"),
+            'Authorization: Basic ' . \base64_encode("api:$this->apiKey"),
         ];
 
-        $headers[] = $isMultipart ? 'Content-Type: multipart/form-data' : 'Content-Type: application/x-www-form-urlencoded';
+        if ($isMultipart) {
+            $headers[] = 'Content-Type: multipart/form-data';
+        } else {
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        }
 
         $result = $this->request(
             method: 'POST',
@@ -142,7 +146,7 @@ class Mailgun extends EmailAdapter
             body: $body,
         );
 
-        $statusCode = $result['statusCode'];
+        $statusCode = $result->getStatusCode();
 
         if ($statusCode >= 200 && $statusCode < 300) {
             $response->setDeliveredTo(\count($message->getTo()));
@@ -150,11 +154,12 @@ class Mailgun extends EmailAdapter
                 $response->addResult($to['email']);
             }
         } elseif ($statusCode >= 400 && $statusCode < 500) {
+            $content = \json_decode((string) $result->getBody(), true);
             foreach ($message->getTo() as $to) {
-                if (\is_string($result['response'])) {
-                    $response->addResult($to['email'], $result['response']);
-                } elseif (isset($result['response']['message'])) {
-                    $response->addResult($to['email'], $result['response']['message']);
+                if (isset($content['message'])) {
+                    $response->addResult($to['email'], $content['message']);
+                } elseif ((string) $result->getBody() !== '') {
+                    $response->addResult($to['email'], (string) $result->getBody());
                 } else {
                     $response->addResult($to['email'], 'Unknown error');
                 }

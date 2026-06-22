@@ -15,10 +15,10 @@ class Twilio extends SMSAdapter
      * @param  string  $authToken Twilio Auth Token
      */
     public function __construct(
-        private readonly string $accountSid,
-        private readonly string $authToken,
-        private readonly ?string $from = null,
-        private readonly ?string $messagingServiceSid = null,
+        private string $accountSid,
+        private string $authToken,
+        private ?string $from = null,
+        private ?string $messagingServiceSid = null
     ) {
         parent::__construct();
     }
@@ -45,7 +45,7 @@ class Twilio extends SMSAdapter
             url: "https://api.twilio.com/2010-04-01/Accounts/{$this->accountSid}/Messages.json",
             headers: [
                 'Content-Type: application/x-www-form-urlencoded',
-                'Authorization: Basic ' . base64_encode("{$this->accountSid}:{$this->authToken}"),
+                'Authorization: Basic '.base64_encode("{$this->accountSid}:{$this->authToken}"),
             ],
             body: [
                 'Body' => $message->getContent(),
@@ -55,13 +55,16 @@ class Twilio extends SMSAdapter
             ],
         );
 
-        if ($result['statusCode'] >= 200 && $result['statusCode'] < 300) {
+        if ($result->getStatusCode() >= 200 && $result->getStatusCode() < 300) {
             $response->setDeliveredTo(1);
             $response->addResult($message->getTo()[0]);
-        } elseif (!\is_null($result['response']['message'] ?? null)) {
-            $response->addResult($message->getTo()[0], $result['response']['message']);
         } else {
-            $response->addResult($message->getTo()[0], 'Unknown error');
+            $body = \json_decode((string) $result->getBody(), true);
+            if (!\is_null($body['message'] ?? null)) {
+                $response->addResult($message->getTo()[0], $body['message']);
+            } else {
+                $response->addResult($message->getTo()[0], 'Unknown error');
+            }
         }
 
         return $response->toArray();

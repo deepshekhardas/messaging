@@ -12,12 +12,15 @@ class APNS extends PushAdapter
 {
     protected const NAME = 'APNS';
 
+    /**
+     * @return void
+     */
     public function __construct(
-        private readonly string $authKey,
-        private readonly string $authKeyId,
-        private readonly string $teamId,
-        private readonly string $bundleId,
-        private readonly bool $sandbox = false,
+        private string $authKey,
+        private string $authKeyId,
+        private string $teamId,
+        private string $bundleId,
+        private bool $sandbox = false
     ) {
         parent::__construct();
     }
@@ -41,7 +44,7 @@ class APNS extends PushAdapter
     /**
      * {@inheritdoc}
      */
-    protected function process(PushMessage $message): array
+    public function process(PushMessage $message): array
     {
         $payload = [];
 
@@ -73,7 +76,7 @@ class APNS extends PushAdapter
             $payload['aps']['badge'] = $message->getBadge();
         }
         if (!\is_null($message->getContentAvailable())) {
-            $payload['aps']['content-available'] = (int) $message->getContentAvailable();
+            $payload['aps']['content-available'] = (int)$message->getContentAvailable();
         }
         if (!\is_null($message->getPriority())) {
             $payload['headers']['apns-priority'] = match ($message->getPriority()) {
@@ -84,15 +87,15 @@ class APNS extends PushAdapter
 
         $claims = [
             'iss' => $this->teamId,   // Issuer
-            'iat' => time(),         // Issued at time
-            'exp' => time() + 3600,  // Expiration time
+            'iat' => \time(),         // Issued at time
+            'exp' => \time() + 3600,  // Expiration time
         ];
 
         $jwt = JWT::encode(
             $claims,
             $this->authKey,
             'ES256',
-            $this->authKeyId,
+            $this->authKeyId
         );
 
         $endpoint = 'https://api.push.apple.com';
@@ -103,7 +106,7 @@ class APNS extends PushAdapter
 
         $urls = [];
         foreach ($message->getTo() as $token) {
-            $urls[] = $endpoint . '/3/device/' . $token;
+            $urls[] = $endpoint.'/3/device/'.$token;
         }
 
         $results = $this->requestMulti(
@@ -111,18 +114,18 @@ class APNS extends PushAdapter
             urls: $urls,
             headers: [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $jwt,
-                'apns-topic: ' . $this->bundleId,
+                'Authorization: Bearer '.$jwt,
+                'apns-topic: '.$this->bundleId,
                 'apns-push-type: alert',
             ],
-            bodies: [$payload],
+            bodies: [$payload]
         );
 
         $response = new Response($this->getType());
 
-        foreach ($results as $result) {
-            $device = basename($result['url']);
-            $statusCode = $result['statusCode'];
+        foreach ($results as $index => $result) {
+            $device = $message->getTo()[$index];
+            $statusCode = $result->getStatusCode();
 
             switch ($statusCode) {
                 case 200:
@@ -130,9 +133,10 @@ class APNS extends PushAdapter
                     $response->addResult($device);
                     break;
                 default:
-                    $error = ($result['response']['reason'] ?? null) === 'ExpiredToken' || ($result['response']['reason'] ?? null) === 'BadDeviceToken'
+                    $body = \json_decode((string) $result->getBody(), true);
+                    $error = ($body['reason'] ?? null) === 'ExpiredToken' || ($body['reason'] ?? null) === 'BadDeviceToken'
                         ? $this->getExpiredErrorMessage()
-                        : ($result['response']['reason'] ?? ($result['error'] ?: 'Unknown error'));
+                        : $body['reason'] ?? null;
 
                     $response->addResult($device, $error);
                     break;
