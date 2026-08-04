@@ -4,19 +4,9 @@ namespace Utopia\Messaging;
 
 use Exception;
 use libphonenumber\PhoneNumberUtil;
-use Utopia\Telemetry\Adapter as Telemetry;
-use Utopia\Telemetry\Adapter\None as NoTelemetry;
-use Utopia\Telemetry\Counter;
 
 abstract class Adapter
 {
-    private Counter $sendCounter;
-
-    public function __construct(?Telemetry $telemetry = null)
-    {
-        $this->sendCounter = ($telemetry ?? new NoTelemetry())->createCounter('messaging.send');
-    }
-
     /**
      * Get the name of the adapter.
      */
@@ -64,73 +54,7 @@ abstract class Adapter
             throw new \Exception('Adapter does not implement process method.');
         }
 
-        try {
-            $response = $this->process($message);
-        } catch (\Throwable $error) {
-            $this->recordSend($message, \method_exists($message, 'getTo') ? \count($message->getTo()) : 1, 0);
-            throw $error;
-        }
-
-        $this->recordResponse($message, $response);
-
-        return $response;
-    }
-
-    public function setTelemetry(Telemetry $telemetry): void
-    {
-        $this->sendCounter = $telemetry->createCounter('messaging.send');
-    }
-
-    private function recordSend(Message $message, int $recipients, int $delivered): void
-    {
-        if ($delivered > 0) {
-            $this->sendCounter->add($delivered, $this->telemetryAttributes($message, [
-                'result' => 'success',
-            ]));
-        }
-
-        $failed = $recipients - $delivered;
-        if ($failed > 0) {
-            $this->sendCounter->add($failed, $this->telemetryAttributes($message, [
-                'result' => 'failure',
-            ]));
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     * @return array<string, mixed>
-     */
-    private function telemetryAttributes(Message $message, array $attributes = []): array
-    {
-        if ($message->getOrigin() !== null) {
-            $attributes['origin'] = $message->getOrigin();
-        }
-
-        return $attributes + [
-            'type' => $this->getType(),
-            'provider' => \strtolower($this->getName()),
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $response
-     */
-    private function recordResponse(Message $message, array $response): void
-    {
-        $results = $response['results'] ?? [];
-        if (empty($results)) {
-            return;
-        }
-
-        $delivered = 0;
-        $failed = 0;
-
-        foreach ($results as $result) {
-            ($result['status'] ?? '') === 'success' ? $delivered++ : $failed++;
-        }
-
-        $this->recordSend($message, $delivered + $failed, $delivered);
+        return $this->process($message);
     }
 
     /**
@@ -145,7 +69,6 @@ abstract class Adapter
      *     url: string,
      *     statusCode: int,
      *     response: array<string, mixed>|string|null,
-     *     headers: array<string, string>,
      *     error: string|null
      * }
      *
@@ -180,8 +103,6 @@ abstract class Adapter
             }
         }
 
-        $responseHeaders = [];
-
         \curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_URL => $url,
@@ -190,17 +111,11 @@ abstract class Adapter
             CURLOPT_USERAGENT => "Appwrite {$this->getName()} Message Sender",
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_CONNECTTIMEOUT => $connectTimeout,
-            CURLOPT_HEADERFUNCTION => function ($ch, string $header) use (&$responseHeaders): int {
-                $parts = \explode(':', $header, 2);
-                if (\count($parts) === 2) {
-                    $responseHeaders[\strtolower(\trim($parts[0]))] = \trim($parts[1]);
-                }
-
-                return \strlen($header);
-            },
         ]);
 
         $response = \curl_exec($ch);
+
+        \curl_close($ch);
 
         try {
             $response = \json_decode($response, true, flags: JSON_THROW_ON_ERROR);
@@ -212,7 +127,6 @@ abstract class Adapter
             'url' => $url,
             'statusCode' => \curl_getinfo($ch, CURLINFO_RESPONSE_CODE),
             'response' => $response,
-            'headers' => $responseHeaders,
             'error' => \curl_error($ch),
         ];
     }
@@ -228,7 +142,6 @@ abstract class Adapter
      *     url: string,
      *     statusCode: int,
      *     response: array<string, mixed>|null,
-     *     headers: array<string, string>,
      *     error: string|null
      * }>
      *
@@ -333,18 +246,14 @@ abstract class Adapter
                 'url' => \curl_getinfo($ch, CURLINFO_EFFECTIVE_URL),
                 'statusCode' => \curl_getinfo($ch, CURLINFO_RESPONSE_CODE),
                 'response' => $response,
-                // Kept in sync with request()'s shape. Response headers are not
-                // captured here: this path copies a configured handle with
-                // curl_copy_handle(), and copying a handle that carries a
-                // CURLOPT_HEADERFUNCTION closure segfaults. Wire up per-handle
-                // capture (without copy_handle) if a multi-path adapter needs it.
-                'headers' => [],
                 'error' => \curl_error($ch),
             ];
 
             \curl_multi_remove_handle($mh, $ch);
+            \curl_close($ch);
         }
 
+        \curl_multi_close($mh);
         \curl_share_close($sh);
 
         return $responses;

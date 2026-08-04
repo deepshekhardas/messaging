@@ -20,8 +20,6 @@ class SMTP extends EmailAdapter
      * @param bool $smtpAutoTLS Enable/disable SMTP AutoTLS feature. Defaults to false.
      * @param string $xMailer The value to use for the X-Mailer header.
      * @param int $timeout SMTP timeout in seconds.
-     * @param bool $keepAlive Whether to reuse the SMTP connection across process() calls.
-     * @param int $timelimit SMTP command timelimit in seconds.
      */
     public function __construct(
         private string $host,
@@ -31,17 +29,12 @@ class SMTP extends EmailAdapter
         private string $smtpSecure = '',
         private bool $smtpAutoTLS = false,
         private string $xMailer = '',
-        private int $timeout = 30,
-        private bool $keepAlive = false,
-        private int $timelimit = 30,
+        private int $timeout = 30
     ) {
-        parent::__construct();
         if (!\in_array($this->smtpSecure, ['', 'ssl', 'tls'])) {
             throw new \InvalidArgumentException('Invalid SMTP secure prefix. Must be "", "ssl" or "tls"');
         }
     }
-
-    private ?PHPMailer $mail = null;
 
     public function getName(): string
     {
@@ -59,33 +52,18 @@ class SMTP extends EmailAdapter
     protected function process(EmailMessage $message): array
     {
         $response = new Response($this->getType());
-
-        if ($this->keepAlive && $this->mail !== null) {
-            $mail = $this->mail;
-            $mail->clearAllRecipients();
-            $mail->clearReplyTos();
-            $mail->clearAttachments();
-        } else {
-            $mail = new PHPMailer();
-            $mail->isSMTP();
-            $mail->Host = $this->host;
-            $mail->Port = $this->port;
-            $mail->SMTPAuth = !empty($this->username) && !empty($this->password);
-            $mail->Username = $this->username;
-            $mail->Password = $this->password;
-            $mail->SMTPSecure = $this->smtpSecure;
-            $mail->SMTPAutoTLS = $this->smtpAutoTLS;
-            $mail->Timeout = $this->timeout;
-            $mail->SMTPKeepAlive = $this->keepAlive;
-
-            if ($this->keepAlive) {
-                $this->mail = $mail;
-            }
-        }
-
+        $mail = new PHPMailer();
+        $mail->isSMTP();
         $mail->XMailer = $this->xMailer;
+        $mail->Host = $this->host;
+        $mail->Port = $this->port;
+        $mail->SMTPAuth = !empty($this->username) && !empty($this->password);
+        $mail->Username = $this->username;
+        $mail->Password = $this->password;
+        $mail->SMTPSecure = $this->smtpSecure;
+        $mail->SMTPAutoTLS = $this->smtpAutoTLS;
+        $mail->Timeout = $this->timeout;
         $mail->CharSet = 'UTF-8';
-        $mail->getSMTPInstance()->Timelimit = $this->timelimit;
         $mail->Subject = $message->getSubject();
         $mail->Body = $message->getContent();
         $mail->setFrom($message->getFromEmail(), $message->getFromName());
@@ -98,7 +76,7 @@ class SMTP extends EmailAdapter
         $mail->AltBody = \trim($mail->AltBody);
 
         foreach ($message->getTo() as $to) {
-            $mail->addAddress($to['email'], $to['name'] ?? '');
+            $mail->addAddress($to);
         }
 
         if (!empty($message->getCC())) {
@@ -117,11 +95,7 @@ class SMTP extends EmailAdapter
             $size = 0;
 
             foreach ($message->getAttachments() as $attachment) {
-                if ($attachment->getContent() !== null) {
-                    $size += \strlen($attachment->getContent());
-                } else {
-                    $size += \filesize($attachment->getPath());
-                }
+                $size += \filesize($attachment->getPath());
             }
 
             if ($size > self::MAX_ATTACHMENT_BYTES) {
@@ -129,21 +103,11 @@ class SMTP extends EmailAdapter
             }
 
             foreach ($message->getAttachments() as $attachment) {
-                if ($attachment->getContent() !== null) {
-                    $mail->addStringAttachment(
-                        string: $attachment->getContent(),
-                        filename: $attachment->getName(),
-                        encoding: PHPMailer::ENCODING_BASE64,
-                        type: $attachment->getType()
-                    );
-                } else {
-                    $mail->addStringAttachment(
-                        string: \file_get_contents($attachment->getPath()),
-                        filename: $attachment->getName(),
-                        encoding: PHPMailer::ENCODING_BASE64,
-                        type: $attachment->getType()
-                    );
-                }
+                $mail->addStringAttachment(
+                    string: \file_get_contents($attachment->getPath()),
+                    filename: $attachment->getName(),
+                    type: $attachment->getType()
+                );
             }
         }
 
@@ -159,10 +123,10 @@ class SMTP extends EmailAdapter
                 ? 'Unknown error'
                 : $mail->ErrorInfo;
 
-            $response->addResult($to['email'], $sent ? '' : $error);
+            $response->addResult($to, $sent ? '' : $error);
         }
 
-        foreach ($message->getCC() ?? [] as $cc) {
+        foreach ($message->getCC() as $cc) {
             $error = empty($mail->ErrorInfo)
                 ? 'Unknown error'
                 : $mail->ErrorInfo;
@@ -170,7 +134,7 @@ class SMTP extends EmailAdapter
             $response->addResult($cc['email'], $sent ? '' : $error);
         }
 
-        foreach ($message->getBCC() ?? [] as $bcc) {
+        foreach ($message->getBCC() as $bcc) {
             $error = empty($mail->ErrorInfo)
                 ? 'Unknown error'
                 : $mail->ErrorInfo;

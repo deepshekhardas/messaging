@@ -23,7 +23,6 @@ class Msg91 extends SMSAdapter
         private string $authKey,
         private string $templateId,
     ) {
-        parent::__construct();
     }
 
     public function getName(): string
@@ -66,14 +65,20 @@ class Msg91 extends SMSAdapter
             ],
         );
 
-        if ($result['statusCode'] === 200) {
+if ($result['statusCode'] === 200) {
             $response->setDeliveredTo(\count($message->getTo()));
             foreach ($message->getTo() as $to) {
                 $response->addResult($to);
             }
         } else {
+            $errorMessage = 'Unknown error';
+            if (isset($result['response']['message'])) {
+                $errorMessage = $result['response']['message'];
+            } elseif (isset($result['response']['error'])) {
+                $errorMessage = $result['response']['error'];
+            }
             foreach ($message->getTo() as $to) {
-                $response->addResult($to, 'Unknown error');
+                $response->addResult($to, $errorMessage);
             }
         }
 
